@@ -1,0 +1,67 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "lumengrid",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "inline": true,
+        "entry": "splash.html"
+      },
+      "game": {
+        "entry": "game.html"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Post today's LumenGrid",
+        "description": "Publish today's optical puzzle to the subreddit",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-today"
+      },
+      {
+        "label": "Post a community level",
+        "description": "Open the Create tab and publish a member-built level",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-community"
+      },
+      {
+        "label": "Show today's LumenGrid stats",
+        "description": "How many solves and what the top score is",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/today-stats"
+      }
+    ]
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install"
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-puzzle": {
+        "endpoint": "/internal/triggers/daily-puzzle",
+        "cron": "0 0 * * *"
+      }
+    }
+  },
+  "permissions": {
+    "redis": true,
+    "reddit": {
+      "asUser": ["SUBMIT_POST", "SUBMIT_COMMENT"],
+      "enableUserFlair": true
+    }
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  }
+}

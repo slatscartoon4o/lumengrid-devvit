@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-local/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.local
+.devvit/
+*.tsbuildinfo
+docs/demo/*.webm
+docs/demo/.capture/
