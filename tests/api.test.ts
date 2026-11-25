@@ -248,6 +248,40 @@ describe('API', () => {
     expect(body.accepted).toBe(true);
   });
 
+  it('a solved submission returns a top-solvers list that already contains the player', async () => {
+    // Without this the client renders a pre-solve snapshot after a win: the
+    // player taps Leaders and their own name is missing, which is precisely the
+    // moment they went to look.  Caught by driving the real UI — the panel said
+    // 10 rows before and after, and "me in top?" only became true on reload.
+    const today = todayUtc();
+    const puzzle = generateDailyPuzzle(today);
+    const res = await app.request('/api/submit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: today, placements: solutionArray(puzzle), seconds: 60 }),
+    });
+    const body = (await res.json()) as SubmitResponse;
+    expect(body.solved).toBe(true);
+    expect(body.top.map((row) => row.username)).toContain('tester');
+    // Par is the proven minimum, so nobody can be strictly better than us.
+    expect(body.top[0]?.placed).toBeGreaterThanOrEqual(puzzle.par);
+  });
+
+  it('the top list is ordered by element count and never ranks a cheat above par', async () => {
+    const today = todayUtc();
+    const puzzle = generateDailyPuzzle(today);
+    const res = await app.request('/api/submit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: today, placements: solutionArray(puzzle), seconds: 60 }),
+    });
+    const body = (await res.json()) as SubmitResponse;
+    for (let i = 1; i < body.top.length; i++) {
+      expect(body.top[i]!.placed).toBeGreaterThanOrEqual(body.top[i - 1]!.placed);
+    }
+    expect(body.top.every((row) => row.placed >= puzzle.par)).toBe(true);
+  });
+
   it('GET /api/leaderboard returns a histogram summing to the board size', async () => {
     const today = todayUtc();
     const puzzle = generateDailyPuzzle(today);

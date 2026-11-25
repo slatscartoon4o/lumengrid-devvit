@@ -185,6 +185,10 @@ export function Game(): React.ReactElement {
                     ...prev.community,
                     solves: result.solves,
                     histogram: result.histogram,
+                    // The server re-read the board after writing our score, so
+                    // this already includes us.  Taking it from the response
+                    // rather than sorting locally keeps one ranking rule.
+                    top: result.top,
                   },
                   profile: {
                     ...prev.profile,

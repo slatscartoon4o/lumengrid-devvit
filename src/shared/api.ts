@@ -73,6 +73,15 @@ export type SubmitResponse = {
   readonly percentile: number;
   readonly histogram: ReadonlyArray<number>;
   readonly solves: number;
+  /**
+   * The day's top solvers *after* this submission, so the client can show the
+   * player their new standing without a round trip or a reload.
+   *
+   * The client must not sort this itself: the ordering and the tie-breaking
+   * live in the server's sorted set, and a browser-side re-sort would be a
+   * second implementation of the same rule, free to drift.
+   */
+  readonly top: ReadonlyArray<{ readonly username: string; readonly placed: number; readonly seconds: number }>;
   readonly reason?: string;
 };
 

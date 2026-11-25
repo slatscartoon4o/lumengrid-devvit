@@ -118,7 +118,7 @@ feed card → play → hint → solve → share → leaderboard → community st
 ```bash
 npm install
 npm run test:types     # tsc --build across the four tsconfig projects
-npm test               # 86 tests, including a full 365-day sweep
+npm test               # 88 tests, including a full 365-day sweep
 npm run build          # → dist/client + dist/server/index.cjs (this is what Devvit deploys)
 ```
 
@@ -156,6 +156,19 @@ any viewport overflows horizontally, the board does not fit on a phone's first s
 smaller than 20px, the share card leaks a coordinate, the victory timer never advanced, the solver
 rejects the studio's sample level, or any console error / uncaught exception appears. It writes the
 six screenshots and re-encodes the demo video (ffmpeg on `PATH`, or set `LUMENGRID_FFMPEG`).
+
+There is one more check the showcase does not cover, because it needs to solve the board the way a
+player does:
+
+```bash
+npm run build:preview
+npm run probe:leaderboard
+```
+
+This plays today's board with real taps, dismisses the victory card, and opens **Leaders** without
+reloading — the actual sequence a player follows. It fails if the player is missing from the top
+list. That failure mode was real: the submit response carried no top-solvers list, so the panel
+rendered a pre-solve snapshot and your own name was absent exactly when you went to look for it.
 
 ---
 
@@ -230,7 +243,7 @@ chord rather than a jingle.
 tests/optics.test.ts       22 tests   colour mixing, reflection geometry, splitters, filters
 tests/solver.test.ts       20 tests   minimality, inventory, pinned elements, brute-force cross-check
 tests/daily-365.test.ts    10 tests   all 365 days: solvable, Par-correct, theme-correct, fast enough
-tests/api.test.ts          34 tests   every route, anti-cheat, streaks, flair, sharing, UGC verification
+tests/api.test.ts          36 tests   every route, anti-cheat, streaks, flair, sharing, UGC verification
 ```
 
 The solver suite cross-checks its answers against an independent exhaustive search on random boards,

@@ -178,7 +178,7 @@ export class GameService {
   async communityFor(date: string, par: number, yourValue: number): Promise<CommunityStats> {
     const [solvesRaw, top] = await Promise.all([
       this.kv.get(KEY.solves(date)),
-      this.kv.zRange(KEY.leaderboard(date), 0, TOP_N - 1),
+      this.topSolvers(date),
     ]);
     const histogram = await this.histogramFor(date, par);
     const solves = Math.max(Number(solvesRaw ?? '0') || 0, histogram.reduce((sum, n) => sum + n, 0));
@@ -186,12 +186,21 @@ export class GameService {
       solves,
       histogram,
       playerPercentile: yourValue > 0 ? percentileFromHistogram(histogram, yourValue) : 100,
-      top: top.map((row) => ({
-        username: row.member,
-        placed: row.score,
-        seconds: 0,
-      })),
+      top,
     };
+  }
+
+  /**
+   * The day's top solvers, best (fewest elements) first.
+   *
+   * Extracted so `/submit` and `/leaderboard` cannot disagree about who is on
+   * the board.  They used to: only the leaderboard computed it, so a player who
+   * solved and stayed on the page saw a list built before their own score
+   * existed — their name missing at the exact moment they went looking for it.
+   */
+  async topSolvers(date: string): Promise<CommunityStats['top']> {
+    const rows = await this.kv.zRange(KEY.leaderboard(date), 0, TOP_N - 1);
+    return rows.map((row) => ({ username: row.member, placed: row.score, seconds: 0 }));
   }
 
   /**
@@ -233,6 +242,7 @@ export class GameService {
         percentile: 0,
         histogram: await this.histogramFor(date, puzzle.par),
         solves: 0,
+        top: await this.topSolvers(date),
         reason: validation.reason,
       };
     }
@@ -251,6 +261,7 @@ export class GameService {
         percentile: 0,
         histogram: await this.histogramFor(date, puzzle.par),
         solves: 0,
+        top: await this.topSolvers(date),
         reason: 'not all crystals lit',
       };
     }
@@ -329,6 +340,10 @@ export class GameService {
       percentile: percentileFromHistogram(histogram, validation.placed),
       histogram,
       solves,
+      // Read *after* the leaderboard write above, so the player's own row is in
+      // it.  This is what lets the victory screen show them their standing
+      // without a reload.
+      top: await this.topSolvers(date),
     };
   }
 

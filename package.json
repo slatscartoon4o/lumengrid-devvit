@@ -16,6 +16,7 @@
     "test:unit": "vitest run",
     "preview": "node dist-local/server/local-server.cjs",
     "showcase": "node scripts/capture-showcase.mjs",
+    "probe:leaderboard": "node scripts/probe-leaderboard.mjs",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "deploy": "npm run test:types && devvit upload"
   },
