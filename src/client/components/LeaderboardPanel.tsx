@@ -24,6 +24,13 @@ export function LeaderboardPanel({ puzzle, community, profile }: Props): React.R
   const peak = useMemo(() => Math.max(1, ...community.histogram), [community.histogram]);
   const myToday = profile.recent.find((row) => row.par === puzzle.par)?.placed ?? null;
 
+  // Explicit pixel heights — see the same note in VictoryModal.  A percentage
+  // height inside a `flex flex-col` whose own height depends on its children
+  // resolves to zero, which silently blanks the whole chart.
+  const TRACK_PX = 62;
+  const barPx = (count: number): number =>
+    count === 0 ? 2 : Math.max(6, Math.round((count / peak) * TRACK_PX));
+
   return (
     /**
      * Phone: one column — the numbers, then the chart, then the names.
@@ -47,17 +54,17 @@ export function LeaderboardPanel({ puzzle, community, profile }: Props): React.R
             <span className="eyebrow">Today's distribution</span>
             <span className="numeric text-xs text-white/40">{community.solves} solvers</span>
           </div>
-          <div className="flex h-24 items-end gap-1.5" data-testid="leaderboard-histogram">
+          <div className="flex items-end gap-1.5" data-testid="leaderboard-histogram">
             {community.histogram.map((count, index) => {
               const isMine = myToday === index;
               const isSelected = selected === index;
-              const height = Math.max(3, (count / peak) * 100);
               return (
                 <button
                   key={index}
                   type="button"
                   onClick={() => setSelected(isSelected ? null : index)}
-                  className="group flex flex-1 flex-col items-center gap-1"
+                  className="group flex flex-1 flex-col items-center justify-end gap-1"
+                  style={{ height: TRACK_PX + 20 }}
                   aria-label={`${count} players used ${index} elements${isMine ? ' — that is you' : ''}`}
                 >
                   <span className="numeric text-[9px] text-white/0 transition-colors group-hover:text-white/55">
@@ -71,7 +78,9 @@ export function LeaderboardPanel({ puzzle, community, profile }: Props): React.R
                           ? 'bg-[#7ee0ff]'
                           : 'bg-[#7ee0ff]/35 group-hover:bg-[#7ee0ff]/60'
                     }`}
-                    style={{ height: `${height}%` }}
+                    style={{ height: `${barPx(count)}px` }}
+                    data-testid="leaderboard-bar"
+                    data-bar-count={count}
                   />
                   <span className={`numeric text-[10px] ${isMine ? 'text-[#ffd591]' : 'text-white/35'}`}>{index}</span>
                 </button>

@@ -144,8 +144,66 @@ async function planSolution(date) {
   return placements;
 }
 
-/** Click one board cell, addressed in grid coordinates. */
-async function clickCell(page, x, y) {
+/**
+ * Pick a photogenic *unsolved* board for the desktop screenshot.
+ *
+ * The screenshot has to teach a judge the game in one glance: beams bent around
+ * the board, at least one crystal already lit, and one still dark so the goal
+ * is visible.
+ *
+ * The search asks the server to grade each candidate, then confirms the winner
+ * by rendering it — the screenshot never shows a state the script has not
+ * verified in the real client.
+ *
+ * `POST /api/hint` is the grader because it runs the real tracer:
+ *   - `found === false` + "already lit"  → the candidate solves the board (skip)
+ *   - `found === false` (anything else)  → the candidate dead-ends (skip: no
+ *                                          crystal is reachable through it)
+ *   - `found === true`                   → a completion exists; `remaining` says
+ *                                          how far away it is
+ *
+ * Among completable candidates, prefer the ones that already light crystals
+ * (a dead-ended board can still show beams without lighting anything, which
+ * makes a dull screenshot) and then the most elaborate build.
+ */
+async function findShowcaseState(date) {
+  const puzzle = await (await fetch(`${BASE}/api/puzzle/${date}`)).json().then((body) => body.puzzle);
+  if (!puzzle || !Array.isArray(puzzle.mounts) || puzzle.mounts.length === 0) return null;
+
+  const codes = [1, 2, 3, 4];
+  const sockets = puzzle.mounts;
+  const blank = () => new Array(64).fill(0);
+
+  const grade = async (placements) => {
+    const res = await fetch(`${BASE}/api/hint`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date, placements }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  };
+
+  const candidates = [];
+  for (let a = 0; a < sockets.length; a++) {
+    for (let b = a + 1; b < sockets.length; b++) {
+      for (const ca of codes) {
+        for (const cb of codes) {
+          const placements = blank();
+          placements[sockets[a]] = ca;
+          placements[sockets[b]] = cb;
+          const verdict = await grade(placements);
+          if (!verdict || !verdict.found) continue;
+          candidates.push({ placements, remaining: verdict.remaining });
+        }
+      }
+    }
+  }
+
+  return candidates.length > 0 ? candidates : [];
+}
+
+/** Click one board cell, addressed in grid coordinates. */async function clickCell(page, x, y) {
   const box = await page.getByTestId('optics-board').boundingBox();
   if (!box) throw new Error('the board is not on screen');
   const cellSize = box.width / 8;
@@ -175,6 +233,48 @@ async function playSolution(page, placements, { pauseMs = 200 } = {}) {
       await clickCell(page, x, y);
     }
     await sleep(pauseMs);
+  }
+}
+
+/**
+ * Assert that a histogram actually draws visible bars.
+ *
+ * Percentage heights inside a flex column whose own height depends on its
+ * children collapse to zero — the chart then renders as an empty slab.  That is
+ * invisible to a DOM check that only counts bars, so measure them.
+ */
+async function assertBarsVisible(page, testId, barTestId, label) {
+  const bars = await page.evaluate(
+    ({ containerId, barId }) => {
+      const container = document.querySelector(`[data-testid="${containerId}"]`);
+      if (!container) return null;
+      return [...container.querySelectorAll(`[data-testid="${barId}"]`)].map((el) => ({
+        count: Number(el.getAttribute('data-bar-count') ?? '0'),
+        height: Math.round(el.getBoundingClientRect().height),
+      }));
+    },
+    { containerId: testId, barId: barTestId }
+  );
+
+  if (!bars || bars.length === 0) {
+    fail(`${label}: no bars rendered`);
+    return;
+  }
+  const empty = bars.filter((bar) => bar.height === 0).length;
+  const nonZeroButTiny = bars.filter((bar) => bar.count > 0 && bar.height < 6);
+  const tallest = Math.max(...bars.map((bar) => bar.height));
+
+  if (tallest < 6) fail(`${label}: every bar is ${tallest}px — the chart is invisible`);
+  else if (nonZeroButTiny.length > 0) {
+    fail(
+      `${label}: ${nonZeroButTiny.length} non-empty bar(s) under 6px (e.g. ${nonZeroButTiny[0].count} players → ${nonZeroButTiny[0].height}px)`
+    );
+  } else if (empty === bars.length) {
+    fail(`${label}: all ${bars.length} bars collapsed`);
+  } else {
+    // Empty buckets are deliberately drawn as a 2px baseline so the axis reads
+    // as continuous; that is not a collapsed bar.
+    pass(`${label}: ${bars.length} bars drawn, tallest ${tallest}px, empty buckets on a 2px baseline`);
   }
 }
 
@@ -236,6 +336,20 @@ async function main() {
       const board = page.getByTestId('splash').locator('svg');
       if ((await board.count()) === 0) fail('feed card: no board preview rendered');
       else pass('feed card: live board preview rendered');
+
+      // The primary button must read as prose.  A stray escape sequence in the
+      // JSX once rendered as a literal backslash ("today\'s").
+      const buttonText = (await page.getByTestId('play-button').textContent()) ?? '';
+      if (buttonText.includes('\\')) fail(`feed card: button text contains a literal backslash — ${JSON.stringify(buttonText)}`);
+      else pass('feed card: button text is clean');
+      if (!/Play today's puzzle/.test(buttonText)) fail(`feed card: button reads ${JSON.stringify(buttonText)}`);
+
+      // The card must not claim zero solvers when the community has played.
+      const shellText = (await page.getByTestId('splash').textContent()) ?? '';
+      if (/\b0 solvers\b|\bSolved\s*0\b|· 0s\b/.test(shellText)) {
+        fail('feed card: shows a zeroed community or a frozen 0s timer');
+      } else pass('feed card: community numbers are live');
+
       await sleep(700);
 
       await assertLayout(page, 'feed card', { allowScrollY: 4 });
@@ -264,7 +378,61 @@ async function main() {
 
       await page.goto(`${BASE}/game.html`, { waitUntil: 'networkidle' });
       await page.getByTestId('optics-board').waitFor();
-      await sleep(800);
+      await sleep(400);
+
+      // Stage a mid-game board rather than an empty one.  An untouched grid
+      // shows a single straight beam and tells a judge nothing about what the
+      // game *is*; this state bends beams through placed elements with one
+      // crystal already lit and one still dark — the whole pitch in one frame.
+      const candidates = await findShowcaseState(today);
+      if (candidates.length === 0) {
+        pass('desktop: no completable partial state today, showing the opening board');
+      } else {
+        // Render each shortlisted candidate in the real client and keep the one
+        // that actually lights crystals while staying unsolved.  Try the ones
+        // with the most elements first — those are the most visually active —
+        // and cap the work so the capture stays quick.
+        const shortlist = [...candidates]
+          .sort(
+            (a, b) =>
+              b.placements.filter((code) => code !== 0).length - a.placements.filter((code) => code !== 0).length ||
+              a.remaining - b.remaining
+          )
+          .slice(0, 24);
+        let bestState = null;
+        for (const candidate of shortlist) {
+          await playSolution(page, candidate.placements, { pauseMs: 60 });
+          const board = await page.getByTestId('optics-board').evaluate((el) => ({
+            lit: Number(el.getAttribute('data-lit-crystals') ?? '0'),
+            total: Number(el.getAttribute('data-crystals') ?? '0'),
+            solved: el.getAttribute('data-solved') === '1',
+            beams: el.querySelectorAll('path[stroke-linecap="round"]').length,
+          }));
+          if (!board.solved && board.lit > 0) {
+            const score = candidate.placements.filter((code) => code !== 0).length * 100 + board.lit;
+            if (!bestState || score > bestState.score) bestState = { candidate, board, score };
+          }
+          await page.getByTestId('reset').click();
+          await sleep(80);
+        }
+        if (bestState) {
+          await playSolution(page, bestState.candidate.placements, { pauseMs: 140 });
+          await sleep(500);
+          const shown = await page.getByTestId('optics-board').evaluate((el) => ({
+            lit: el.getAttribute('data-lit-crystals'),
+            total: el.getAttribute('data-crystals'),
+          }));
+          if (shown.lit === '0') fail('desktop: the staged board lights nothing');
+          else pass(`desktop: staged board shows ${shown.lit}/${shown.total} crystals lit, mid-solve`);
+        } else {
+          pass('desktop: no candidate lit a crystal while unsolved; showing the opening board');
+        }
+      }
+
+      // The keyboard focus ring must not sit on (0,0) on an untouched board.
+      const ringAtRest = await page.getByTestId('optics-board').locator('rect[stroke-dasharray="6 4"]').count();
+      if (ringAtRest > 0) fail('desktop: a keyboard focus ring is painted before the keyboard is used');
+      else pass('desktop: no stray focus ring at rest');
 
       const box = await page.getByTestId('optics-board').boundingBox();
       if (!box) fail('desktop: board not rendered');
@@ -278,6 +446,8 @@ async function main() {
       else pass('desktop game: zero console errors');
 
       console.log('\n[3/6] victory + share card — 1280x800');
+      await page.getByTestId('reset').click();
+      await sleep(400);
       // The clock starts on the first placement, so space the clicks out a
       // little — otherwise the card reads "0s", which looks like a broken timer
       // in a screenshot a judge will stare at.
@@ -294,6 +464,7 @@ async function main() {
       // A frozen 0s on the victory card means the clock never started.
       if (/(^|\s)0s(\s|$)/.test(heading)) fail('victory card: the timer read 0s — the run clock never advanced');
       else pass('victory card: the run clock advanced');
+      await assertBarsVisible(page, 'victory-histogram', 'victory-bar', 'victory histogram');
       await sleep(900);
       await page.screenshot({ path: join(SHOTS, '3-victory-share.png') });
 
@@ -362,9 +533,23 @@ async function main() {
       await page.getByTestId('ugc-verdict').waitFor({ timeout: 15000 });
       await sleep(500);
 
-      const verdict = (await page.getByTestId('ugc-verdict').textContent()) ?? '';
-      if (!/Verified/.test(verdict)) fail(`studio: the solver rejected the sample level — ${verdict.slice(0, 80)}`);
-      else pass(`studio: solver verified the authored level (${verdict.replace(/\s+/g, ' ').slice(0, 46)})`);
+      const verdictText = (await page.getByTestId('ugc-verdict').textContent()) ?? '';
+      if (!/Verified/.test(verdictText)) fail(`studio: the solver rejected the sample level — ${verdictText.slice(0, 80)}`);
+      else pass(`studio: solver verified the authored level (${verdictText.replace(/\s+/g, ' ').slice(0, 46)})`);
+      if (/1 crystals/.test(verdictText)) fail('studio: verdict reads "1 crystals" — singular not handled');
+
+      // The live beam preview must actually be drawing the emitter's ray.
+      const beams = await page.getByTestId('ugc-beams').evaluate((el) => ({
+        count: Number(el.getAttribute('data-beam-count') ?? '0'),
+        polylines: el.querySelectorAll('polyline').length,
+      }));
+      if (beams.polylines === 0) fail('studio: the live beam preview drew nothing');
+      else pass(`studio: live preview drawing ${beams.count} beam(s)`);
+
+      // The publish button must fit on one line, not wrap to three.
+      const publishHeight = await page.getByTestId('ugc-publish').evaluate((el) => el.getBoundingClientRect().height);
+      if (publishHeight > 52) fail(`studio: the publish button is ${Math.round(publishHeight)}px tall — its label is wrapping`);
+      else pass(`studio: the publish button is a single ${Math.round(publishHeight)}px line`);
 
       await assertLayout(page, 'studio', { allowScrollY: 0 });
       await page.screenshot({ path: join(SHOTS, '5-ugc-studio.png') });
@@ -390,10 +575,33 @@ async function main() {
       const bars = await page.getByTestId('leaderboard-histogram').locator('button').count();
       if (bars < 3) fail(`leaderboard: only ${bars} histogram buckets`);
       else pass(`leaderboard: ${bars} histogram buckets`);
+      await assertBarsVisible(page, 'leaderboard-histogram', 'leaderboard-bar', 'leaderboard histogram');
 
       const rows = await page.getByTestId('leaderboard-top').locator('li').count();
       if (rows === 0) fail('leaderboard: no solvers listed');
       else pass(`leaderboard: ${rows} solvers listed`);
+
+      // The headcount must never be smaller than what the chart shows.
+      const counts = await page.evaluate(() => {
+        const text = document.querySelector('[data-testid="leaderboard-panel"]')?.textContent ?? '';
+        const shown = Number(/(\d+)\s*solvers/.exec(text)?.[1] ?? '0');
+        const barsTotal = [...document.querySelectorAll('[data-testid="leaderboard-bar"]')].reduce(
+          (sum, el) => sum + Number(el.getAttribute('data-bar-count') ?? '0'),
+          0
+        );
+        const scores = [...document.querySelectorAll('[data-testid="leaderboard-top"] li')].map((li) => {
+          const match = /(\d+)elements/.exec((li.textContent ?? '').replace(/\s+/g, ''));
+          return Number(match?.[1] ?? '0');
+        });
+        return { shown, barsTotal, scores };
+      });
+      if (counts.shown < counts.barsTotal) {
+        fail(`leaderboard: claims ${counts.shown} solvers but the chart holds ${counts.barsTotal}`);
+      } else pass(`leaderboard: headcount ${counts.shown} covers the chart's ${counts.barsTotal}`);
+      const par = init.puzzle.par;
+      const impossible = counts.scores.filter((score) => score < par);
+      if (impossible.length > 0) fail(`leaderboard: ${impossible.length} run(s) below par ${par} — impossible scores`);
+      else pass(`leaderboard: no run is cheaper than par ${par}`);
 
       // Selecting a bar must explain itself rather than silently highlight.
       await page.getByTestId('leaderboard-histogram').locator('button').nth(3).click();

@@ -64,6 +64,16 @@ export function VictoryModal({
   }, [onClose]);
 
   const peak = useMemo(() => Math.max(1, ...histogram), [histogram]);
+  // Explicit pixel heights, not percentages.
+  //
+  // The bars live in a `flex flex-col` column whose height is determined by its
+  // children — so a child with `height: 63%` resolves against an indefinite
+  // height and collapses to 0.  Every bar then renders invisibly and the chart
+  // reads as an empty black box.  Measuring against a known track height keeps
+  // the bars real pixels at every viewport size.
+  const TRACK_PX = 52;
+  const barPx = (count: number): number =>
+    count === 0 ? 2 : Math.max(6, Math.round((count / peak) * TRACK_PX));
 
   return (
     <div
@@ -103,16 +113,17 @@ export function VictoryModal({
               />
             </div>
             <div className="eyebrow mb-1.5">Element count distribution</div>
-            <div className="flex h-16 items-end gap-1.5" data-testid="victory-histogram">
+            <div className="flex items-end gap-1.5" data-testid="victory-histogram">
               {histogram.map((count, index) => {
                 const isYou = index === placed;
-                const height = Math.max(3, (count / peak) * 100);
                 return (
-                  <div key={index} className="flex flex-1 flex-col items-center gap-1">
+                  <div key={index} className="flex flex-1 flex-col items-center justify-end gap-1" style={{ height: TRACK_PX + 18 }}>
                     <div
                       className={`w-full rounded-t-[3px] ${isYou ? 'bg-[#ffd591]' : 'bg-[#7ee0ff]/45'}`}
-                      style={{ height: `${height}%` }}
+                      style={{ height: `${barPx(count)}px` }}
                       title={`${count} players used ${index}`}
+                      data-testid="victory-bar"
+                      data-bar-count={count}
                     />
                     <span className={`numeric text-[10px] ${isYou ? 'text-[#ffd591]' : 'text-white/35'}`}>{index}</span>
                   </div>

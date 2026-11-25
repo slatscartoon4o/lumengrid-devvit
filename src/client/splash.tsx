@@ -3,7 +3,6 @@ import './index.css';
 import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { InitResponse } from '../shared/api';
-import { formatDuration } from '../shared/share';
 import { api, expandGame } from './lib/bridge';
 import { prime } from './lib/audio';
 import { BoardThumbnail } from './components/OpticsBoard';
@@ -42,12 +41,7 @@ export function Splash(): React.ReactElement {
   const solves = init?.community.solves ?? 0;
   const streak = init?.profile.streak ?? 0;
 
-  const blurb = useMemo(() => {
-    if (!init) return 'Loading today\'s light…';
-    const crystals = init.community.histogram.reduce((sum, n) => sum + n, 0);
-    void crystals;
-    return init.puzzle.theme;
-  }, [init]);
+  const blurb = useMemo(() => (init ? init.puzzle.theme : 'Loading today\'s light…'), [init]);
 
   return (
     <div className="mx-auto flex min-h-[560px] w-full max-w-[640px] flex-col justify-between px-4 py-4 sm:min-h-[600px]" data-testid="splash">
@@ -104,11 +98,11 @@ export function Splash(): React.ReactElement {
             }}
             data-testid="play-button"
           >
-            ▶ Play today\'s puzzle
+            ▶ Play today&apos;s puzzle
           </button>
           <p className="text-center text-[10px] text-white/30">
             {init.profile.hasPlayedToday
-              ? `Already solved today · ${formatDuration(0)} to beat your score`
+              ? 'Already solved today · Replay to beat par, or explore the Archive'
               : 'One puzzle a day · everyone plays the same board'}
           </p>
         </div>

@@ -181,7 +181,7 @@ export class GameService {
       this.kv.zRange(KEY.leaderboard(date), 0, TOP_N - 1),
     ]);
     const histogram = await this.histogramFor(date, par);
-    const solves = Number(solvesRaw ?? '0') || histogram.reduce((sum, n) => sum + n, 0);
+    const solves = Math.max(Number(solvesRaw ?? '0') || 0, histogram.reduce((sum, n) => sum + n, 0));
     return {
       solves,
       histogram,
@@ -304,7 +304,11 @@ export class GameService {
 
     const histogram = await this.histogramFor(date, puzzle.par);
     const solvesRaw = await this.kv.get(KEY.solves(date));
-    const solves = Number(solvesRaw ?? '0') || histogram.reduce((sum, n) => sum + n, 0);
+    // Never report fewer solvers than the histogram actually contains: the
+    // counter and the sorted set are written separately, so a partially seeded
+    // or partially expired day could otherwise claim "1 solver" above a chart
+    // showing hundreds.
+    const solves = Math.max(Number(solvesRaw ?? '0') || 0, histogram.reduce((sum, n) => sum + n, 0));
 
     const badge: ParBadge = parBadge(validation.placed, puzzle.par);
 

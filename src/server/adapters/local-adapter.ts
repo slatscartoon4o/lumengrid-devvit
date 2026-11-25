@@ -20,6 +20,7 @@ import type {
   SubmittedPost,
 } from './adapter';
 import { mulberry32, fnv1a } from '../../shared/rng';
+import { generateDailyPuzzle } from '../../shared/generator';
 
 type ZSet = Map<string, number>;
 
@@ -51,20 +52,40 @@ export class LocalAdapter implements GameAdapter {
     this.seedCommunity();
   }
 
+  /**
+   * Seed a plausible day of community activity.
+   *
+   * Two details matter for the preview to look like a real day rather than a
+   * mock:
+   *
+   *   1. Scores are drawn from `[par, par + 3]`.  Nothing below Par is
+   *      possible — Par is the *proven* minimum — so a seeded 2 on a Par 3
+   *      board would put an impossible run at the top of the leaderboard and
+   *      make the whole scoring model look broken to anyone who checks.
+   *   2. The `solves:` counter is initialised here.  `GameService` treats that
+   *      counter as authoritative for the day's headcount, so leaving it unset
+   *      meant the first real submission (`incr` → "1") replaced a few hundred
+   *      seeded players with "1 solvers".
+   */
   private seedCommunity(): void {
     const date = todayKey();
     const seed = fnv1a(`lumengrid-local:${date}`);
     const rng = mulberry32(seed);
     const board = this.zsets.get(`lb:${date}`) ?? new Map<string, number>();
     this.zsets.set(`lb:${date}`, board);
+
+    const par = generateDailyPuzzle(date).par;
     const count = 180 + rng.int(120);
     for (let i = 0; i < count; i++) {
       const name = `${HANDLES[rng.int(HANDLES.length)] ?? 'player'}${rng.int(900) + 100}`;
-      // Bell-ish distribution around 4 elements.
-      const roll = rng.next() + rng.next() + rng.next();
-      const placed = Math.max(2, Math.min(7, Math.round(roll * 2 + 2)));
-      board.set(name, placed);
+      // Bell-ish, but never cheaper than Par: most players land one or two over,
+      // a skilled tail hits Par exactly.
+      const roll = (rng.next() + rng.next() + rng.next()) / 3;
+      const placed = par + Math.round(roll * 3);
+      board.set(name, Math.min(par + 3, Math.max(par, placed)));
     }
+
+    this.store.set(`solves:${date}`, String(board.size));
   }
 
   async currentPlayer(): Promise<Player> {

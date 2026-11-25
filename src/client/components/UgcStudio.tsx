@@ -33,6 +33,7 @@ import {
   cellKind,
   encodeCell,
 } from '../../shared/types';
+import { trace } from '../../shared/optics';
 import { api, toast } from '../lib/bridge';
 import type { UgcPublishResponse, UgcVerifyResponse } from '../../shared/api';
 
@@ -56,6 +57,17 @@ const DIRS = [
 
 const CELL = 44;
 
+/** Beam colour per channel mask — mirrors the palette in OpticsBoard. */
+const BEAM_COLOUR: Record<number, string> = {
+  [CH_RED]: '#ff4d63',
+  [CH_GREEN]: '#3dffa0',
+  [CH_BLUE]: '#4d8dff',
+  [CH_YELLOW]: '#ffd84d',
+  [CH_MAGENTA]: '#e05cff',
+  [CH_GREEN | CH_BLUE]: '#3fe8e0',
+  [CH_WHITE]: '#ffffff',
+};
+
 type Props = {
   readonly onPublished: (id: string) => void;
 };
@@ -72,6 +84,17 @@ export function UgcStudio({ onPublished }: Props): React.ReactElement {
   const [publishing, setPublishing] = useState(false);
 
   const mountSet = useMemo(() => new Set(mounts), [mounts]);
+
+  /**
+   * Live beam preview.
+   *
+   * The editor runs the *same* tracer the game does, on the cells as they are
+   * being painted, with no elements placed.  So the author sees their emitter
+   * actually firing — and sees which squares are already in a crystal's line of
+   * sight — while designing, instead of only finding out at Verify time.  It is
+   * also a free correctness check: if the beams look wrong, the level is wrong.
+   */
+  const preview = useMemo(() => trace(cells, new Uint8Array(CELL_COUNT)), [cells]);
 
   const paint = useCallback(
     (index: number) => {
@@ -161,9 +184,34 @@ export function UgcStudio({ onPublished }: Props): React.ReactElement {
       data-testid="ugc-studio"
     >
       <div className="lg:col-start-1 lg:row-start-1">
-        <div className="overflow-hidden rounded-xl border border-white/8 bg-[#05060a] p-1.5">
+        <div className="relative overflow-hidden rounded-xl border border-white/8 bg-[#05060a] p-1.5">
+          {/* Live beams sit under the cell buttons, so painting stays responsive
+              while the light re-traces on every edit.  viewBox is cell units and
+              preserveAspectRatio="none" lets it stretch to whatever the grid
+              resolves to, so it lines up at every width without measuring. */}
+          <svg
+            viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute inset-1.5"
+            aria-hidden="true"
+            data-testid="ugc-beams"
+            data-beam-count={preview.segments.length}
+            data-lit-crystals={preview.satisfied}
+          >
+            {preview.segments.map((segment) => {
+              const points = segment.path.map(([x, y]) => `${x + 0.5},${y + 0.5}`).join(' ');
+              const colour = BEAM_COLOUR[segment.mask] ?? '#ffffff';
+              return (
+                <g key={segment.id}>
+                  <polyline points={points} fill="none" stroke={colour} strokeWidth={0.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.28} />
+                  <polyline points={points} fill="none" stroke={colour} strokeWidth={0.16} strokeLinecap="round" strokeLinejoin="round" opacity={0.95} />
+                  <polyline points={points} fill="none" stroke="#ffffff" strokeWidth={0.06} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+                </g>
+              );
+            })}
+          </svg>
           <div
-            className="grid touch-manipulation"
+            className="relative grid touch-manipulation"
             style={{ gridTemplateColumns: `repeat(${BOARD_W}, minmax(0, 1fr))` }}
             role="grid"
             aria-label="Level editor"
@@ -177,7 +225,7 @@ export function UgcStudio({ onPublished }: Props): React.ReactElement {
                   key={index}
                   type="button"
                   className={`relative aspect-square border border-white/4 transition-colors ${
-                    isSocket ? 'bg-[#7ee0ff]/10' : 'bg-white/[0.015] hover:bg-white/[0.05]'
+                    isSocket ? 'bg-[#7ee0ff]/10' : 'bg-white/[0.015] hover:bg-white/[0.10]'
                   }`}
                   onClick={() => paint(index)}
                   aria-label={`cell ${index % BOARD_W + 1}, ${Math.floor(index / BOARD_W) + 1}`}
@@ -290,21 +338,28 @@ export function UgcStudio({ onPublished }: Props): React.ReactElement {
             }`}
             data-testid="ugc-verdict"
           >
-            {verdict.valid ? `✅ Verified — par ${verdict.par}, ${verdict.crystals} crystals` : `⚠️ ${verdict.reason}`}
+            {verdict.valid
+            ? `✅ Verified — par ${verdict.par}, ${verdict.crystals} ${verdict.crystals === 1 ? 'crystal' : 'crystals'}`
+            : `⚠️ ${verdict.reason}`}
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <button className="btn flex-1" onClick={verify} disabled={verifying} data-testid="ugc-verify">
+        <div className="flex gap-2">
+          <button className="btn flex-1 whitespace-nowrap" onClick={verify} disabled={verifying} data-testid="ugc-verify">
             {verifying ? 'Solving…' : '🔍 Verify'}
           </button>
-          <button className="btn btn-primary flex-1" onClick={publish} disabled={publishing} data-testid="ugc-publish">
-            {publishing ? 'Posting…' : '🚀 Publish to subreddit'}
-          </button>
-          <button className="btn" onClick={clearAll}>
+          <button className="btn whitespace-nowrap" onClick={clearAll}>
             Clear
           </button>
         </div>
+        <button
+          className="btn btn-primary w-full whitespace-nowrap"
+          onClick={publish}
+          disabled={publishing}
+          data-testid="ugc-publish"
+        >
+          {publishing ? 'Posting…' : '🚀 Publish to subreddit'}
+        </button>
       </div>
     </div>
   );

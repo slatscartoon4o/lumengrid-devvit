@@ -113,7 +113,9 @@ export function OpticsBoard({
   showSolutionOnSockets = false,
 }: Props): React.ReactElement {
   const [hover, setHover] = useState<number | null>(null);
-  const [focused, setFocused] = useState<number>(0);
+  // `null` until the keyboard is actually used: drawing a focus ring on (0,0)
+  // at first paint looks like a stray selection box on an untouched board.
+  const [focused, setFocused] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const result = useMemo(() => trace(puzzle.cells, placements), [puzzle.cells, placements]);
@@ -166,8 +168,11 @@ export function OpticsBoard({
 
   const handleKey = useCallback(
     (event: React.KeyboardEvent<SVGSVGElement>) => {
-      const gx = focused % BOARD_W;
-      const gy = Math.floor(focused / BOARD_W);
+      // Keyboard navigation starts from wherever the ring last was; on the very
+      // first keypress it starts at the top-left.
+      const from = focused ?? 0;
+      const gx = from % BOARD_W;
+      const gy = Math.floor(from / BOARD_W);
       const move = (dx: number, dy: number): void => {
         const nx = Math.max(0, Math.min(BOARD_W - 1, gx + dx));
         const ny = Math.max(0, Math.min(BOARD_H - 1, gy + dy));
@@ -193,12 +198,14 @@ export function OpticsBoard({
         case 'Enter':
         case ' ':
           event.preventDefault();
-          activate(focused);
+          activate(from);
           break;
         case 'Backspace':
         case 'Delete':
-          event.preventDefault();
-          onRemove(focused);
+          if (focused !== null) {
+            event.preventDefault();
+            onRemove(focused);
+          }
           break;
         default:
           break;
@@ -220,8 +227,12 @@ export function OpticsBoard({
         onPointerDown={(event) => {
           const cell = cellFromEvent(event);
           if (cell === null) return;
+          // A mouse/touch player does not need the keyboard ring; clear it so
+          // the board stays clean while they play.
+          setFocused(null);
           activate(cell);
         }}
+        onBlur={() => setFocused(null)}
         onPointerMove={(event) => setHover(cellFromEvent(event))}
         onPointerLeave={() => setHover(null)}
         data-testid="optics-board"
@@ -506,20 +517,22 @@ export function OpticsBoard({
           />
         )}
 
-        {/* --- keyboard focus ring --- */}
-        <rect
-          x={cx(focused % BOARD_W) - CELL / 2 + 2}
-          y={cy(Math.floor(focused / BOARD_W)) - CELL / 2 + 2}
-          width={CELL - 4}
-          height={CELL - 4}
-          rx={10}
-          fill="none"
-          stroke="rgba(255,255,255,0.55)"
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          opacity={0.9}
-          pointerEvents="none"
-        />
+        {/* --- keyboard focus ring (only once the keyboard is in use) --- */}
+        {focused !== null && (
+          <rect
+            x={cx(focused % BOARD_W) - CELL / 2 + 2}
+            y={cy(Math.floor(focused / BOARD_W)) - CELL / 2 + 2}
+            width={CELL - 4}
+            height={CELL - 4}
+            rx={10}
+            fill="none"
+            stroke="rgba(255,255,255,0.55)"
+            strokeWidth={2}
+            strokeDasharray="6 4"
+            opacity={0.9}
+            pointerEvents="none"
+          />
+        )}
 
         {showSolutionOnSockets && hintCell !== null && (
           <circle cx={cx(hintCell % BOARD_W)} cy={cy(Math.floor(hintCell / BOARD_W))} r={6} fill="#7ee0ff" />

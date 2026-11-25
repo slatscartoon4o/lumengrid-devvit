@@ -382,6 +382,68 @@ describe('API', () => {
   });
 });
 
+describe('community numbers are never self-contradictory', () => {
+  const today = todayUtc();
+  const puzzle = generateDailyPuzzle(today);
+
+  it('the seeded community never scores below par', async () => {
+    // Par is the *proven* minimum, so a score under it is not merely unlikely —
+    // it is impossible.  A seeded board full of them makes the whole scoring
+    // model look broken to anyone who checks the leaderboard.
+    const seeded = new LocalAdapter('observer');
+    const rows = await seeded.kv.zRange(`lb:${today}`, 0, -1);
+    expect(rows.length).toBeGreaterThan(100);
+    const below = rows.filter((row) => row.score < puzzle.par);
+    expect(below).toEqual([]);
+    const above = rows.filter((row) => row.score > puzzle.par + 3);
+    expect(above).toEqual([]);
+  });
+
+  it('the seeded day starts with a believable headcount', async () => {
+    const seeded = new LocalAdapter('observer');
+    const raw = await seeded.kv.get(`solves:${today}`);
+    const rows = await seeded.kv.zRange(`lb:${today}`, 0, -1);
+    expect(Number(raw)).toBe(rows.length);
+    expect(rows.length).toBeGreaterThan(100);
+  });
+
+  it('a real submission cannot shrink the day back to "1 solver"', async () => {
+    // Regression: the counter used to be read with `||`, so the first real
+    // solve (incr -> 1) replaced a few hundred seeded players with 1.
+    const adapter = new LocalAdapter('tester');
+    const service = new GameService(adapter);
+    const hint = await service.hint(today, new Array<number>(CELL_COUNT).fill(0));
+    expect(hint.found).toBe(true);
+    const placements = new Array<number>(CELL_COUNT).fill(0);
+    let cursor = hint;
+    while (cursor.found && cursor.cellIndex !== null && cursor.code !== null) {
+      placements[cursor.cellIndex] = cursor.code;
+      cursor = await service.hint(today, placements);
+    }
+    const outcome = await service.submit(today, placements, 30);
+    expect(outcome).toMatchObject({ status: 'ok', solved: true });
+
+    const community = await service.communityFor(today, puzzle.par, 0);
+    const histogramTotal = community.histogram.reduce((sum, n) => sum + n, 0);
+    expect(histogramTotal).toBeGreaterThan(100);
+    expect(community.solves).toBeGreaterThanOrEqual(histogramTotal);
+    expect(community.solves).toBeGreaterThan(100);
+  });
+
+  it('communityFor never reports fewer solvers than the histogram holds', async () => {
+    // Whatever the storage says, the headcount is floored by the chart: a
+    // partially seeded or partially expired day must not claim "1 solver" above
+    // a chart showing hundreds.
+    const adapter = new LocalAdapter('tester');
+    const service = new GameService(adapter);
+    await adapter.kv.set(`solves:${today}`, '1');
+    const community = await service.communityFor(today, puzzle.par, 0);
+    const histogramTotal = community.histogram.reduce((sum, n) => sum + n, 0);
+    expect(histogramTotal).toBeGreaterThan(100);
+    expect(community.solves).toBe(histogramTotal);
+  });
+});
+
 describe('validatePlacements', () => {
   it('accepts an empty board', () => {
     const puzzle = generateDailyPuzzle(todayUtc());
