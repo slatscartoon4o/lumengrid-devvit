@@ -30,6 +30,7 @@ import {
 } from '../src/shared/types';
 import { generateDailyPuzzle, todayUtc } from '../src/shared/generator';
 import { solvePar } from '../src/shared/solver';
+import { buildShareCard } from '../src/shared/share';
 import { trace } from '../src/shared/optics';
 import type { InitResponse, SubmitResponse, LeaderboardResponse } from '../src/shared/api';
 
@@ -317,6 +318,30 @@ describe('API', () => {
       expect(puzzle.mounts).toContain(body.cellIndex);
     }
     expect([1, 2, 3, 4]).toContain(body.code);
+  });
+
+  it('the comment the server posts is the same card the client builds', async () => {
+    // The client used to reimplement this format three times — once for the
+    // preview, once for the Copy button, once (only on the server) properly.
+    // The result was a player previewing one card, copying a second, and
+    // posting a third.  This pins the server's output to the shared builder so
+    // a future inline template cannot quietly become a fourth.
+    const today = todayUtc();
+    const puzzle = generateDailyPuzzle(today);
+    const res = await app.request('/api/share-comment', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: today, placed: puzzle.par, seconds: 65 }),
+    });
+    const body = (await res.json()) as { text: string };
+    const expected = buildShareCard(puzzle, {
+      placed: puzzle.par,
+      par: puzzle.par,
+      seconds: 65,
+      streak: 0,
+      best: 0,
+    });
+    expect(body.text).toBe(expected);
   });
 
   it('POST /api/share-comment builds a spoiler-free card and records the comment', async () => {

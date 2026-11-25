@@ -118,17 +118,6 @@ export const PLACE_MIRROR_BACK = 2;
 export const PLACE_SPLIT_SLASH = 3;
 export const PLACE_SPLIT_BACK = 4;
 
-export function placementCode(piece: PieceKind, orient: Orient): number {
-  if (piece === 'mirror') return orient === 'slash' ? PLACE_MIRROR_SLASH : PLACE_MIRROR_BACK;
-  return orient === 'slash' ? PLACE_SPLIT_SLASH : PLACE_SPLIT_BACK;
-}
-
-export function codeToPlacement(index: number, code: number): Placement {
-  const piece: PieceKind = code <= 2 ? 'mirror' : 'splitter';
-  const orient: Orient = code === 1 || code === 3 ? 'slash' : 'backslash';
-  return { x: index % BOARD_W, y: Math.floor(index / BOARD_W), piece, orient };
-}
-
 /** A fully specified daily (or community) puzzle. */
 export type Puzzle = {
   /** `YYYY-MM-DD` for daily puzzles, `ugc:<id>` for community levels. */

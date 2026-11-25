@@ -17,7 +17,7 @@ import type {
   SubmitResponse,
 } from '../shared/api';
 import { trace } from '../shared/optics';
-import { formatDuration, parBadge } from '../shared/share';
+import { buildShareCard, formatDuration, parBadge } from '../shared/share';
 import { OpticsBoard, type Tool } from './components/OpticsBoard';
 import { VictoryModal } from './components/VictoryModal';
 import { LeaderboardPanel } from './components/LeaderboardPanel';
@@ -250,15 +250,31 @@ export function Game(): React.ReactElement {
     }
   }, [init, puzzle, seconds, victory]);
 
+  /**
+   * The share card, built once.
+   *
+   * The preview, the Copy button and the comment the server posts must be the
+   * same string. They were three separate templates before this, and all three
+   * disagreed: the server's had the edition number and crystal palette, the
+   * preview had the streak and closing line, and Copy had neither. A player
+   * previewed one thing, copied another, and posted a third.
+   */
+  const shareCardText = useMemo(() => {
+    if (!puzzle || !victory) return '';
+    return buildShareCard(puzzle, {
+      placed: victory.placed,
+      par: victory.par,
+      seconds,
+      streak: victory.streak,
+      best: victory.bestStreak,
+    });
+  }, [puzzle, victory, seconds]);
+
   const copyCard = useCallback(async () => {
-    if (!puzzle || !victory) return;
-    const text = [
-      `🔆 LumenGrid — ${victory.badge === 'under' ? '💎 Under Par' : victory.badge === 'par' ? '⚡ Perfect Par' : '✨ Solved'}`,
-      `${victory.placed}/${victory.par} elements · ${formatDuration(seconds)}`,
-    ].join('\n');
-    const ok = await copyText(text);
+    if (!shareCardText) return;
+    const ok = await copyText(shareCardText);
     toast(ok ? 'Copied to clipboard' : 'Clipboard unavailable');
-  }, [puzzle, seconds, victory]);
+  }, [shareCardText]);
 
   const loadArchive = useCallback(
     async (date: string) => {
@@ -490,14 +506,7 @@ export function Game(): React.ReactElement {
           percentile={victory.percentile}
           histogram={victory.histogram}
           solves={victory.solves}
-          commentText={[
-            `🔆 LumenGrid — ${victory.badge === 'under' ? '💎 Under Par' : victory.badge === 'par' ? '⚡ Perfect Par' : '✨ Solved'}`,
-            `${victory.placed}/${victory.par} elements · ${formatDuration(seconds)}`,
-            victory.streak > 1 ? `🔥 ${victory.streak}-day streak` : '',
-            'Can you light every gem with fewer?',
-          ]
-            .filter(Boolean)
-            .join('\n')}
+          commentText={shareCardText}
           busy={busy}
           onShare={() => void shareComment()}
           onCopy={() => void copyCard()}

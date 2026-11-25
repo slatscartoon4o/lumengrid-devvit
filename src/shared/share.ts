@@ -72,40 +72,7 @@ export function buildShareCard(puzzle: Puzzle, run: RunOutcome): string {
   return lines.join('\n');
 }
 
-/** Same content, one line, for tight UI spots such as toasts. */
-export function buildShareLine(puzzle: Puzzle, run: RunOutcome): string {
-  const edition = editionForDate(puzzle.id);
-  const badge = parBadge(run.placed, run.par);
-  const emoji = badge === 'under' ? '💎' : badge === 'par' ? '⚡' : '✨';
-  return `LumenGrid #${String(edition).padStart(3, '0')} ${emoji} ${run.placed}/${run.par} elements in ${formatDuration(run.seconds)}`;
-}
-
 /** Structured payload for the API/client, kept separate from prose. */
-export type SharePayload = {
-  readonly edition: number;
-  readonly date: string;
-  readonly placed: number;
-  readonly par: number;
-  readonly seconds: number;
-  readonly streak: number;
-  readonly badge: ParBadge;
-  readonly palette: string[];
-  readonly text: string;
-};
-
-export function buildSharePayload(puzzle: Puzzle, run: RunOutcome): SharePayload {
-  return {
-    edition: editionForDate(puzzle.id),
-    date: puzzle.id,
-    placed: run.placed,
-    par: run.par,
-    seconds: run.seconds,
-    streak: run.streak,
-    badge: parBadge(run.placed, run.par),
-    palette: crystalPalette(puzzle),
-    text: buildShareCard(puzzle, run),
-  };
-}
 
 /**
  * Percentage of today's players you beat, derived from a placement histogram.

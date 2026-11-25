@@ -118,9 +118,16 @@ feed card → play → hint → solve → share → leaderboard → community st
 ```bash
 npm install
 npm run test:types     # tsc --build across the four tsconfig projects
-npm test               # 88 tests, including a full 365-day sweep
+npm test               # 89 tests, including a full 365-day sweep
+npm run check          # the above, plus lint and a dead-export scan
 npm run build          # → dist/client + dist/server/index.cjs (this is what Devvit deploys)
 ```
+
+`npm run check` is worth knowing about because two defects shipped that nothing else would
+have caught: a flair function that was defined, correct and never called, and four exported
+helpers with no callers at all. Both are invisible to tests (nothing misbehaves) and to
+`tsc`/ESLint's unused-variable rules (which work per file, so an export with no importer looks
+used). `scripts/check-dead-exports.mjs` does the cross-file count, and exits non-zero.
 
 ### On Reddit
 
@@ -243,7 +250,7 @@ chord rather than a jingle.
 tests/optics.test.ts       22 tests   colour mixing, reflection geometry, splitters, filters
 tests/solver.test.ts       20 tests   minimality, inventory, pinned elements, brute-force cross-check
 tests/daily-365.test.ts    10 tests   all 365 days: solvable, Par-correct, theme-correct, fast enough
-tests/api.test.ts          36 tests   every route, anti-cheat, streaks, flair, sharing, UGC verification
+tests/api.test.ts          37 tests   every route, anti-cheat, streaks, flair, sharing, UGC verification
 ```
 
 The solver suite cross-checks its answers against an independent exhaustive search on random boards,

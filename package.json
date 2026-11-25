@@ -17,7 +17,9 @@
     "preview": "node dist-local/server/local-server.cjs",
     "showcase": "node scripts/capture-showcase.mjs",
     "probe:leaderboard": "node scripts/probe-leaderboard.mjs",
-    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "check:dead": "node scripts/check-dead-exports.mjs",
+    "check": "npm run test:types && npm run lint && npm run check:dead",
+    "lint": "eslint src",
     "deploy": "npm run test:types && devvit upload"
   },
   "engines": {

@@ -115,7 +115,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   const text = await response.text();
-  let parsed: unknown = null;
+  let parsed: unknown;
   try {
     parsed = text ? JSON.parse(text) : null;
   } catch {

@@ -225,7 +225,7 @@ thresholds move. Verified by reverting the call and watching the new test go red
 - **A community level cannot be published broken**, because the server re-proves every submission.
 - **The flair ladder lives in exactly one function**, is called from the solve path, and has its
   boundaries pinned by a test — after an audit found it defined but never granted.
-- **88 automated tests**, including an optics suite cross-checked against brute force and a full
+- **89 automated tests**, including an optics suite cross-checked against brute force and a full
   season sweep of the daily generator.
 
 ---
