@@ -12,7 +12,7 @@ import { LocalAdapter } from '../src/server/adapters/local-adapter';
 import { createApiRoutes } from '../src/server/routes/api';
 import { createMenuRoutes } from '../src/server/routes/menu';
 import { createTriggerRoutes } from '../src/server/routes/triggers';
-import { GameService, validatePlacements } from '../src/server/game-service';
+import { GameService, validatePlacements, streakTier } from '../src/server/game-service';
 import {
   CELL_COUNT,
   KIND_CRYSTAL,
@@ -53,6 +53,19 @@ function solutionArray(puzzle: Puzzle): number[] {
   if (!proof.solvable) throw new Error('test fixture puzzle is unsolvable');
   for (const step of proof.solution) out[step.cellIndex] = step.code;
   return out;
+}
+
+/** A local adapter whose flair call always throws, standing in for an API outage. */
+class FlakyFlairAdapter extends LocalAdapter {
+  override get reddit(): LocalAdapter['reddit'] {
+    const base = super.reddit;
+    return {
+      ...base,
+      setUserFlair: async () => {
+        throw new Error('reddit api unavailable');
+      },
+    };
+  }
 }
 
 describe('API', () => {
@@ -199,6 +212,40 @@ describe('API', () => {
     expect(second.solves).toBe(solvesAfterFirst);
     // And must not inflate the streak either.
     expect(second.streak).toBe(first.streak);
+  });
+
+  it('awarding flair is wired into a real solve, not merely defined', async () => {
+    // Regression: `awardFlair` existed but nothing called it, so streak flair
+    // was never granted — and no test noticed, which is how it survived.  The
+    // assertion is on the adapter's recorded state, i.e. what Reddit would see.
+    const today = todayUtc();
+    const puzzle = generateDailyPuzzle(today);
+    await app.request('/api/submit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: today, placements: solutionArray(puzzle), seconds: 12 }),
+    });
+    const flair = adapter.inspect().flair;
+    expect(flair).not.toBeNull();
+    expect(flair).toContain('Lightbringer');
+    expect(flair).toContain('1d');
+  });
+
+  it('a flair failure never fails an otherwise valid solve', async () => {
+    // Flair is cosmetic.  If the Reddit API is down, the player still solved
+    // the board and the leaderboard must still record it.
+    const today = todayUtc();
+    const puzzle = generateDailyPuzzle(today);
+    const site = makeApp(new FlakyFlairAdapter('tester'));
+    const res = await site.request('/api/submit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: today, placements: solutionArray(puzzle), seconds: 12 }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as SubmitResponse;
+    expect(body.solved).toBe(true);
+    expect(body.accepted).toBe(true);
   });
 
   it('GET /api/leaderboard returns a histogram summing to the board size', async () => {
@@ -495,5 +542,31 @@ describe('placement code set', () => {
   it('trace treats an unsolved board as unsolved', () => {
     const cells = new Array<number>(CELL_COUNT).fill(0);
     expect(trace(cells, new Uint8Array(CELL_COUNT)).solved).toBe(false);
+  });
+});
+
+// The tier ladder is quoted verbatim in the README and the Devpost write-up, so
+// its boundaries are pinned here rather than left to a comment.  A previous
+// draft of both documents described every tier one step too early.
+describe('flair tiers', () => {
+  it('names the tier a given streak length actually earns', () => {
+    expect(streakTier(1)).toBe('Lightbringer');
+    expect(streakTier(2)).toBe('Lightbringer');
+    expect(streakTier(3)).toBe('Beam Rider');
+    expect(streakTier(6)).toBe('Beam Rider');
+    expect(streakTier(7)).toBe('Prism Adept');
+    expect(streakTier(29)).toBe('Prism Adept');
+    expect(streakTier(30)).toBe('Lumen Master');
+    expect(streakTier(365)).toBe('Lumen Master');
+  });
+
+  it('never regresses as the streak grows', () => {
+    const order = ['Lightbringer', 'Beam Rider', 'Prism Adept', 'Lumen Master'];
+    let previous = 0;
+    for (let streak = 1; streak <= 60; streak++) {
+      const rank = order.indexOf(streakTier(streak));
+      expect(rank).toBeGreaterThanOrEqual(previous);
+      previous = rank;
+    }
   });
 });

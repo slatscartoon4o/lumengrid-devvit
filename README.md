@@ -85,9 +85,9 @@ prove beatable — a subreddit never gets a permanently broken puzzle on its fro
 calls `reddit.submitCustomPost({ runAs: 'USER' })`, so the level appears as a real interactive post
 authored by that player.
 
-**Flair that means something.** Streaks tier up through `Lightbringer` (3 days) → `Beam Rider` (7) →
-`Prism Adept` (30) → `Lumen Master`, and the flair carries the badge (💎 / ⚡ / ✨) plus the streak
-count.
+**Flair that means something.** Streaks tier up through `Lightbringer` (day 1) → `Beam Rider`
+(3 days) → `Prism Adept` (7) → `Lumen Master` (30), and the flair carries the badge (💎 / ⚡ / ✨)
+plus the streak count.
 
 **Moderator tools.** Three subreddit menu items: post today's puzzle, post a community level, show
 today's stats. Plus an `onAppInstall` trigger that posts the first puzzle and a `0 0 * * *` scheduler
@@ -118,7 +118,7 @@ feed card → play → hint → solve → share → leaderboard → community st
 ```bash
 npm install
 npm run test:types     # tsc --build across the four tsconfig projects
-npm test               # 82 tests, including a full 365-day sweep
+npm test               # 86 tests, including a full 365-day sweep
 npm run build          # → dist/client + dist/server/index.cjs (this is what Devvit deploys)
 ```
 
@@ -230,7 +230,7 @@ chord rather than a jingle.
 tests/optics.test.ts       22 tests   colour mixing, reflection geometry, splitters, filters
 tests/solver.test.ts       20 tests   minimality, inventory, pinned elements, brute-force cross-check
 tests/daily-365.test.ts    10 tests   all 365 days: solvable, Par-correct, theme-correct, fast enough
-tests/api.test.ts          30 tests   every route, anti-cheat, streaks, sharing, UGC verification
+tests/api.test.ts          34 tests   every route, anti-cheat, streaks, flair, sharing, UGC verification
 ```
 
 The solver suite cross-checks its answers against an independent exhaustive search on random boards,

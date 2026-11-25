@@ -1,7 +1,7 @@
 # Devpost submission — LumenGrid
 
-Copy-paste source for the submission form. Every claim below was verified against the repository at
-`HEAD=c7f408d`; numbers match `npm test` and `ffprobe` output exactly.
+Copy-paste source for the submission form. Every claim below was verified against the source, and
+the numbers match `npm test` and `ffprobe` output exactly.
 
 ---
 
@@ -151,8 +151,8 @@ authored by that player.
 
 ### 4. Flair and moderator tooling
 
-Streaks tier up through `Lightbringer` (3 days) → `Beam Rider` (7) → `Prism Adept` (30) →
-`Lumen Master`, and the flair carries the badge (💎 / ⚡ / ✨) plus the streak count. Three subreddit
+Streaks tier up through `Lightbringer` (day 1) → `Beam Rider` (3 days) → `Prism Adept` (7) →
+`Lumen Master` (30), and the flair carries the badge (💎 / ⚡ / ✨) plus the streak count. Three subreddit
 menu items give moderators *Post today's puzzle*, *Post a community level* and
 *Show today's stats*; an `onAppInstall` trigger posts the first puzzle, and a `0 0 * * *` scheduler
 task handles every day after. The scheduler only *posts* — it never decides the puzzle, which comes
@@ -205,6 +205,14 @@ the fill.
 Declaring `mounts` turned the problem into a nine-cell search, which is cheap enough to run inside a
 request and cheap enough to run 365 times in the test suite (28 seconds for the full season).
 
+**Flair that existed but was never granted.** `awardFlair` was written, correct, and completely
+unreachable: nothing called it. Every player's streak silently went unbadged. It survived review
+because dead-but-correct code looks identical to working code on inspection — and because the tier
+thresholds were duplicated in three places (the implementation, the README, the submission draft),
+where all three drifted out of step with each other. The fix was to hoist the ladder into one exported
+pure function, call it from the submit path, and pin its boundaries with a test that fails if the
+thresholds move. Verified by reverting the call and watching the new test go red.
+
 ---
 
 ## Accomplishments we are proud of
@@ -215,7 +223,9 @@ request and cheap enough to run 365 times in the test suite (28 seconds for the 
   answer.
 - **The share card cannot spoil**, and the showcase asserts that no coordinate ever reaches it.
 - **A community level cannot be published broken**, because the server re-proves every submission.
-- **82 automated tests**, including an optics suite cross-checked against brute force and a full
+- **The flair ladder lives in exactly one function**, is called from the solve path, and has its
+  boundaries pinned by a test — after an audit found it defined but never granted.
+- **86 automated tests**, including an optics suite cross-checked against brute force and a full
   season sweep of the daily generator.
 
 ---
@@ -230,6 +240,13 @@ The second lesson was that a hint is a *solver* problem, not a *content* problem
 store a solution per level and reveal it one step at a time. That fails the moment a player builds
 something the author did not imagine. Re-solving the open part of the board around the player's fixed
 elements costs one solver option and is correct in every case.
+
+The third lesson came out of the flair audit: **a fact written down in three places is a fact that
+will be wrong in two of them.** The tier thresholds existed as source code, as README prose and as
+submission copy, and the copy had drifted one tier out of step. The durable fix is not "be more
+careful when writing docs" — it is to have one exported function that is the single source of truth,
+and a test whose only job is to fail if it changes. Anything a document quotes should be something a
+test already asserts.
 
 ---
 

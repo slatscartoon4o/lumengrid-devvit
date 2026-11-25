@@ -312,6 +312,11 @@ export class GameService {
 
     const badge: ParBadge = parBadge(validation.placed, puzzle.par);
 
+    // Grant the streak flair.  Awaited, because `awardFlair` catches its own
+    // failures — so this cannot reject, and a Reddit API hiccup can never turn
+    // a legitimate solve into an error.
+    await this.awardFlair(streak, badge);
+
     return {
       status: 'ok',
       accepted: true,
@@ -542,10 +547,28 @@ export class GameService {
 
   /** Flair is a nice-to-have: any failure is swallowed and reported, never thrown. */
   async awardFlair(streak: number, badge: ParBadge): Promise<{ ok: boolean; detail: string }> {
-    const tier = streak >= 30 ? 'Lumen Master' : streak >= 7 ? 'Prism Adept' : streak >= 3 ? 'Beam Rider' : 'Lightbringer';
-    const mark = badge === 'under' ? '💎' : badge === 'par' ? '⚡' : '✨';
-    return this.adapter.reddit.setUserFlair(`${mark} ${tier} · ${streak}d`);
+    try {
+      const mark = badge === 'under' ? '💎' : badge === 'par' ? '⚡' : '✨';
+      return await this.adapter.reddit.setUserFlair(`${mark} ${streakTier(streak)} · ${streak}d`);
+    } catch (error) {
+      return { ok: false, detail: error instanceof Error ? error.message : 'flair failed' };
+    }
   }
+}
+
+/**
+ * The flair ladder.
+ *
+ * Exported and pure so the tier boundaries can be tested directly: getting
+ * these thresholds wrong is invisible in play (a player simply sees a tier name
+ * they cannot verify) but shows up immediately in any write-up that quotes them.
+ * The thresholds live here and nowhere else.
+ */
+export function streakTier(streak: number): string {
+  if (streak >= 30) return 'Lumen Master';
+  if (streak >= 7) return 'Prism Adept';
+  if (streak >= 3) return 'Beam Rider';
+  return 'Lightbringer';
 }
 
 function safeParse(raw: string): Record<string, unknown> | null {
