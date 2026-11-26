@@ -33,6 +33,20 @@ describe('devvit.json', () => {
     expect(() => parseAppConfigJson(readConfigJson(), false)).not.toThrow();
   });
 
+  it('matches the app slug registered on Reddit', () => {
+    // The CLI fetches the app by `slug: this.project.name` and, when nothing
+    // comes back, dies with "Your app doesn't exist yet - you'll need to run
+    // 'npx devvit init'" — which is true but useless, because what actually
+    // happened is that the config name and the registered slug drifted apart.
+    // The app exists: slug `lumengrid-game`, id ef47f737-9a8d-429c-9c17-44a9485f258f.
+    // (`lumengrid` was already taken by another account, hence the suffix.)
+    // If this test fails, either the slug was deliberately changed — in which
+    // case update the registered app too, not just this file — or someone
+    // renamed the config without redeploying.
+    const config = parseAppConfigJson(readConfigJson(), false);
+    expect(config.name).toBe('lumengrid-game');
+  });
+
   it('declares the Reddit scopes that make runAs:"USER" legal', () => {
     // This is the load-bearing permission for the game's central feature: the
     // victory card posts a comment *as the player*.  `Comment.submit` calls

@@ -118,7 +118,7 @@ feed card → play → hint → solve → share → leaderboard → community st
 ```bash
 npm install
 npm run test:types     # tsc --build across the four tsconfig projects
-npm test               # 94 tests, including a full 365-day sweep
+npm test               # 95 tests, including a full 365-day sweep
 npm run check          # the above, plus lint and a dead-export scan
 npm run build          # → dist/client + dist/server/index.cjs (this is what Devvit deploys)
 ```
@@ -279,7 +279,7 @@ tests/optics.test.ts       22 tests   colour mixing, reflection geometry, splitt
 tests/solver.test.ts       20 tests   minimality, inventory, pinned elements, brute-force cross-check
 tests/daily-365.test.ts    10 tests   all 365 days: solvable, Par-correct, theme-correct, fast enough
 tests/api.test.ts          37 tests   every route, anti-cheat, streaks, flair, sharing, UGC verification
-tests/config.test.ts        5 tests   devvit.json parses under the CLI's own schema
+tests/config.test.ts        6 tests   devvit.json parses under the CLI's own schema; slug, scopes, plugins pinned
 ```
 
 The solver suite cross-checks its answers against an independent exhaustive search on random boards,

@@ -238,7 +238,7 @@ on the way. `tests/config.test.ts` now parses the real file with the CLI's own s
 - **A community level cannot be published broken**, because the server re-proves every submission.
 - **The flair ladder lives in exactly one function**, is called from the solve path, and has its
   boundaries pinned by a test — after an audit found it defined but never granted.
-- **94 automated tests**, including an optics suite cross-checked against brute force and a full
+- **95 automated tests**, including an optics suite cross-checked against brute force and a full
   season sweep of the daily generator.
 
 ---
