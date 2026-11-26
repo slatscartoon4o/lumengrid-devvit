@@ -91,14 +91,23 @@ export function Splash(): React.ReactElement {
               </div>
             </div>
             {/*
-             * The preview board is the one element that can grow or shrink
-             * without losing anything: the text beside it carries the
-             * information.  Sizing it by height (`aspect-square` + `h-full`,
-             * capped) means a tall frame gets a generous board instead of a
-             * black band, and a short frame shrinks the board rather than
-             * shoving the Play button out of view.
+             * A single `clamp()` feeds both axes, so the box is square by
+             * construction rather than by `aspect-square`.
+             *
+             * `aspect-square` is not enough here: this sits in a CSS Grid
+             * `auto` track, which sizes itself from the item's *intrinsic*
+             * width — and `max-width: 46%` does not contribute to intrinsic
+             * sizing.  Pair that with `height: 100%` and the frame renders as
+             * a tall thin column (measured 110×240 at 732×512) with the board
+             * floating in the middle of it.  Deriving width and height from
+             * the same expression removes the chance for the two axes to
+             * disagree, in any track, at any viewport.
+             *
+             * `38vh` is the flex term: the card's height is set by Reddit's
+             * iframe, not by us, so `vh` is the only length that tracks the
+             * space actually available.
              */}
-            <div className="board-frame h-full max-h-[240px] max-w-[46%] shrink-0 aspect-square overflow-hidden">
+            <div className="board-frame h-[clamp(116px,38vh,210px)] w-[clamp(116px,38vh,210px)] shrink-0 overflow-hidden">
               <BoardThumbnail puzzle={init.puzzle} fill />
             </div>
           </>

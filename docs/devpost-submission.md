@@ -239,6 +239,15 @@ available height. `npm run probe:splash` now asserts, at 732×512, 640×480, 390
 the Play button is inside the viewport, that nothing overflows, and that no single empty band exceeds
 18% of the frame — and restoring the old `min-h` turns eight of those assertions red.
 
+**And then the fix broke something else.** Sizing the board with `aspect-square` inside the grid's
+`auto` track looked right in isolation and rendered as a 110×240 column in the real frame — the track
+sizes from the item's intrinsic width, which `max-width` does not contribute to, while `height: 100%`
+stretches to the track. The board floated in the middle of a tall thin strip. The screenshot that
+caught it came from a real device, not from any test we had; the probe was then extended to assert
+square-within-2px, width ≥ 120px and full containment, and reverting the fix turns twelve assertions
+red. The lesson is not "be careful with grid" — it is that a viewport assertion set is only as good as
+the list of things it measures, and the list grew every time a human looked at a picture.
+
 ---
 
 ## Accomplishments we are proud of

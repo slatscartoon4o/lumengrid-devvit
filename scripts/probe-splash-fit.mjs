@@ -101,6 +101,8 @@ async function measure(page) {
     const splash = document.querySelector('[data-testid="splash"]');
     const header = splash?.firstElementChild;
     const footer = splash?.lastElementChild;
+    const boardFrame = document.querySelector('.board-frame');
+    const boardSvg = boardFrame?.querySelector('svg');
 
     /*
      * The largest run of genuinely empty vertical space.
@@ -156,6 +158,8 @@ async function measure(page) {
       headerBox: header ? rect(header) : null,
       footerBox: footer ? rect(footer) : null,
       playBox: rect(play),
+      boardFrameBox: rect(boardFrame),
+      boardSvgBox: rect(boardSvg),
       largestVoid: Math.round(largestVoid),
       voidAt: voidAt === null ? null : Math.round(voidAt),
     };
@@ -219,6 +223,39 @@ function check(name, m) {
     const fill = Math.round((m.splashBox.bottom - Math.max(0, m.splashBox.top)) / vh * 100);
     if (fill >= 85) pass(`${tag} card fills ${fill}% of the frame`);
     else fail(`${tag} card only fills ${fill}% of a ${vh}px frame — a visible black band`);
+  }
+
+  /*
+   * The preview board must stay square.
+   *
+   * `aspect-square` alone does not guarantee this inside a CSS Grid `auto`
+   * track: the track resolves its width from the item's *intrinsic* width
+   * (which `max-width: 46%` does not affect), while `height: 100%` stretches
+   * to the track's height.  The result is a tall thin column with the board
+   * floating in it.  Comparing the rendered box against its own height is the
+   * only way to catch that — a screenshot at one size looks plausible.
+   */
+  if (!m.boardFrameBox) {
+    fail(`${tag} no .board-frame in the DOM`);
+  } else {
+    const w = Math.round(m.boardFrameBox.width);
+    const h = Math.round(m.boardFrameBox.height);
+    if (Math.abs(w - h) <= 2) {
+      pass(`${tag} preview board is square (${w}×${h})`);
+    } else {
+      fail(`${tag} preview board is ${w}×${h} — not square, the grid column is squashing it`);
+    }
+    if (w >= 120) {
+      pass(`${tag} preview board is ${w}px wide`);
+    } else {
+      fail(`${tag} preview board only ${w}px wide — too small to read as a board`);
+    }
+    const bx = m.boardFrameBox;
+    if (bx.top >= -0.5 && bx.bottom <= vh + 0.5) {
+      pass(`${tag} preview board is fully inside the viewport`);
+    } else {
+      fail(`${tag} preview board spans ${Math.round(bx.top)}–${Math.round(bx.bottom)}, outside the ${vh}px viewport`);
+    }
   }
 }
 

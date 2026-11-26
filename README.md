@@ -225,6 +225,16 @@ height. That also removed a 263px black band the old `justify-between` left unde
 fully inside the viewport, that nothing overflows, and that no single empty band exceeds ~18% of the
 frame. Restoring `min-h-[600px]` turns eight of those assertions red.
 
+It also pins the preview board's shape, and that one has its own story. The first fix sized the board
+with `h-full max-h-[240px] max-w-[46%] aspect-square` so it would shrink with the frame. Inside a CSS
+Grid `auto` track that does not hold: the track sizes itself from the item's **intrinsic** width,
+which `max-width` does not contribute to, while `height: 100%` stretches to the track. The board
+rendered as a **110×240 column** with the board floating in the middle — a regression introduced by
+the fix for the first bug, caught only by looking at a real-device screenshot. Width and height are
+now derived from one `clamp()`, so they cannot disagree, and the probe asserts square within 2px,
+width ≥ 120px, and fully inside the viewport at every size. Reverting to `aspect-square` turns twelve
+assertions red.
+
 ---
 
 ## How it works
