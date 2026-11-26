@@ -47,9 +47,16 @@ export class LocalAdapter implements GameAdapter {
   private readonly player: string;
   private readonly localPostId = 't3_local_preview';
 
-  constructor(playerName = 'You') {
+  /**
+   * @param options.seed  Whether to pre-populate the community.  Tests that
+   *   assert *what the player's own submission does to the leaderboard* pass
+   *   `false`: against 180–300 seeded players a par score need not crack the
+   *   top ten, so the same assertion would pass or fail depending on the day's
+   *   random seed — a flaky test with a real signal buried inside it.
+   */
+  constructor(playerName = 'You', options: { seed?: boolean } = {}) {
     this.player = playerName;
-    this.seedCommunity();
+    if (options.seed !== false) this.seedCommunity();
   }
 
   /**

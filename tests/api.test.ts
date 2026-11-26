@@ -254,9 +254,18 @@ describe('API', () => {
     // player taps Leaders and their own name is missing, which is precisely the
     // moment they went to look.  Caught by driving the real UI — the panel said
     // 10 rows before and after, and "me in top?" only became true on reload.
+    //
+    // A fresh adapter with no seeded community, deliberately.  Against the
+    // 180–300 seeded players a par score only sometimes cracks the top ten, so
+    // asserting `top` contains 'tester' would depend on the day's RNG seed and
+    // fail on roughly half of them.  The property under test is "my own solve
+    // is visible in the list I get back", and that is only observable when the
+    // list is not already full of strangers.
+    const solo = new LocalAdapter('tester', { seed: false });
+    const soloApp = makeApp(solo);
     const today = todayUtc();
     const puzzle = generateDailyPuzzle(today);
-    const res = await app.request('/api/submit', {
+    const res = await soloApp.request('/api/submit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ date: today, placements: solutionArray(puzzle), seconds: 60 }),

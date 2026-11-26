@@ -22,7 +22,7 @@ import { OpticsBoard, type Tool } from './components/OpticsBoard';
 import { VictoryModal } from './components/VictoryModal';
 import { LeaderboardPanel } from './components/LeaderboardPanel';
 import { UgcStudio } from './components/UgcStudio';
-import { api, copyText, expandGame, isReddit, onToast, toast } from './lib/bridge';
+import { api, copyText, expandGame, onToast, toast } from './lib/bridge';
 import { isMuted, play, prime, resetScale, toggleMuted } from './lib/audio';
 
 type Tab = 'play' | 'archive' | 'create' | 'board';
@@ -448,7 +448,19 @@ export function Game(): React.ReactElement {
               {isToday ? ' · new puzzle at 00:00 UTC' : ''}
             </p>
 
-            {!isReddit() && (
+            {/*
+              `init.localMode`, not `isReddit()`.
+
+              The badge is a claim about the *data* — "this community is
+              simulated" — and only the server knows that for certain: its
+              adapters return a hard-coded true/false.  `isReddit()` is a
+              guess about the *hosting* (`window.parent !== window`), which is
+              wrong in both directions: a Reddit view that is not iframed
+              would show the badge, and any third-party iframe of the local
+              preview would hide it.  The server already told us which world
+              this is; use that.
+            */}
+            {init?.localMode && (
               <p className="text-center text-[10px] text-white/20 lg:text-left" data-testid="local-badge">
                 Local preview · same engine, simulated community
               </p>

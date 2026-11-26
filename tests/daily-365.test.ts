@@ -60,7 +60,19 @@ describe('date helpers', () => {
 });
 
 describe('365-day daily puzzle sweep', () => {
-  it(`generates ${SEASON_DAYS} solvable, non-trivial, theme-correct levels`, () => {
+  /**
+   * The full-season sweep runs the exact solver 365 times, so its wall clock is
+   * a property of the machine, not of the code: 28 s on an idle box, 62 s with
+   * every core busy.  The global 60 s timeout therefore sat right on the edge of
+   * the idle measurement and went red purely from ambient load — a test that
+   * fails when the laptop is busy teaches you to ignore red.
+   *
+   * The real performance floor is asserted *inside* the test (`maxGenMs < 1500`,
+   * per day), and each day's search is bounded by `deadlineMs`/`maxNodes`, so a
+   * genuine hang still fails rather than hanging.  300 s leaves ~5× headroom over
+   * the loaded measurement.
+   */
+  it(`generates ${SEASON_DAYS} solvable, non-trivial, theme-correct levels`, { timeout: 300_000 }, () => {
     const failures: string[] = [];
     let maxGenMs = 0;
     let slowestDate = '';
