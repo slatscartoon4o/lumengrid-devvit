@@ -286,6 +286,22 @@ careful when writing docs" — it is to have one exported function that is the s
 and a test whose only job is to fail if it changes. Anything a document quotes should be something a
 test already asserts.
 
+And a fourth, which took the longest to learn because it was not a bug in any file. Every defect that
+actually mattered this week had the same shape: **something was running and nobody was looking at it.**
+The feed card was laid out in a size nobody measured; the preview board was a shape no assertion
+checked; three long-lived `devvit playtest` watchers had been left running in the background for up to
+ten hours, silently minting a new prerelease every time a build touched `dist/` and quietly pointing
+the subreddit's install back at it — while `devvit view` kept showing the stable version, because it
+reads the app's version list and not the installation. Nothing was miscomputed. Nothing threw. The
+observability was just absent, and absence does not announce itself.
+
+The static form — a function defined but never called, an export with no importer — only wastes space.
+The dynamic form writes state, and it is the one that ships to judges. The countermeasure that
+generalises is not care; it is to prefer evidence that cannot be authored by the thing being
+observed. We found the responsible processes by comparing file creation times against a peer's
+command transcript and matching PIDs, not by reading the logs they produced — the logs were
+self-consistent and told us the wrong story three times.
+
 ---
 
 ## What's next
