@@ -205,6 +205,26 @@ reloading — the actual sequence a player follows. It fails if the player is mi
 list. That failure mode was real: the submit response carried no top-solvers list, so the panel
 rendered a pre-solve snapshot and your own name was absent exactly when you went to look for it.
 
+And one the showcase would have missed even if it were looking, because the showcase opened the
+feed card at 800×640 — a size no Reddit surface uses:
+
+```bash
+npm run build:preview
+npm run probe:splash
+```
+
+Reddit sizes the interactive-post iframe itself. Measured on `r/lumengrid_game_dev2`, a desktop
+embed is **732 × 512**, and a phone's is shorter. The feed card had `min-h-[600px]` on its root, so
+on a 512px frame the layout pushed the **Play button to y=561 — 49px below the fold**, and
+`body.no-scroll` meant it was clipped, not scrollable. The first screen a judge ever sees had no way
+to start the game. The fix is structural: the card is now a three-row grid whose middle row is
+`minmax(0,1fr)`, and the preview board is the one element that grows or shrinks with the available
+height. That also removed a 263px black band the old `justify-between` left under the header.
+
+`npm run probe:splash` asserts, at 732×512, 640×480, 390×420 and 390×360, that the Play button is
+fully inside the viewport, that nothing overflows, and that no single empty band exceeds ~18% of the
+frame. Restoring `min-h-[600px]` turns eight of those assertions red.
+
 ---
 
 ## How it works

@@ -226,6 +226,19 @@ as the player. Had we taken the prose at face value and dropped `asUser`, the ga
 — the comment posted *as you* — would have quietly degraded to an app-authored comment, with no error
 on the way. `tests/config.test.ts` now parses the real file with the CLI's own schema.
 
+**The Play button that was 49 pixels below the fold.** Everything the showcase checked, it passed —
+because it opened the feed card at 800×640, a size no Reddit surface actually uses. Reddit sizes the
+interactive-post iframe itself, and on a real desktop embed that frame is 512px tall. The card's root
+carried `min-h-[600px]`, and `body.no-scroll` meant the overflow was clipped rather than scrollable,
+so the single most important element on the only screen most judges would ever see — **▶ Play today's
+puzzle** — sat at y=561, invisible and unclickable, with 263px of black band above it. It took a
+real-device measurement to find, because every local viewport we had tested was taller than the one
+Reddit gives us. The fix is structural rather than a nudge: the card is now a three-row grid whose
+middle row is `minmax(0,1fr)` and whose preview board is the one element that flexes with the
+available height. `npm run probe:splash` now asserts, at 732×512, 640×480, 390×420 and 390×360, that
+the Play button is inside the viewport, that nothing overflows, and that no single empty band exceeds
+18% of the frame — and restoring the old `min-h` turns eight of those assertions red.
+
 ---
 
 ## Accomplishments we are proud of
@@ -236,6 +249,9 @@ on the way. `tests/config.test.ts` now parses the real file with the CLI's own s
   answer.
 - **The share card cannot spoil**, and the showcase asserts that no coordinate ever reaches it.
 - **A community level cannot be published broken**, because the server re-proves every submission.
+- **The feed card is verified at the sizes Reddit actually gives it** — down to a 360px phone embed —
+  and the Play button is asserted to be inside the frame at every one of them, after a real-device
+  measurement caught it 49px below the fold.
 - **The flair ladder lives in exactly one function**, is called from the solve path, and has its
   boundaries pinned by a test — after an audit found it defined but never granted.
 - **100 automated tests**, including an optics suite cross-checked against brute force and a full

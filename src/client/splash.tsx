@@ -44,9 +44,12 @@ export function Splash(): React.ReactElement {
   const blurb = useMemo(() => (init ? init.puzzle.theme : 'Loading today\'s light…'), [init]);
 
   return (
-    <div className="mx-auto flex min-h-[560px] w-full max-w-[640px] flex-col justify-between px-4 py-4 sm:min-h-[600px]" data-testid="splash">
+    <div
+      className="mx-auto grid h-full w-full max-w-[640px] grid-rows-[auto_minmax(0,1fr)_auto] gap-2 px-4 py-3"
+      data-testid="splash"
+    >
       <div>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="grid h-7 w-7 place-items-center rounded-[7px] bg-gradient-to-br from-[#7ee0ff] to-[#ffd591] text-[13px] font-black text-[#06121a]">
               L
@@ -55,16 +58,27 @@ export function Splash(): React.ReactElement {
           </div>
           <span className="eyebrow numeric">#{edition}</span>
         </div>
+      </div>
 
+      {/*
+       * The middle row is the only one that flexes.  Reddit chooses the
+       * iframe height (measured: 512px on desktop, ~420 on a phone), and the
+       * first version of this card hard-coded `min-h-[600px]` — so the Play
+       * button sat at y=561, 49px below the frame, invisible to every judge.
+       * `minmax(0,1fr)` plus `items-center` lets this row absorb whatever
+       * height is left and split the slack evenly above and below, instead of
+       * pushing it into one black band under the header.
+       */}
+      <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         {error ? (
-          <div className="slab rounded-xl p-4 text-center" role="alert">
+          <div className="slab col-span-2 rounded-xl p-4 text-center" role="alert">
             <p className="text-sm text-[#ffc1c8]">LumenGrid could not load</p>
             <p className="mt-1 text-[11px] text-white/40">{error}</p>
           </div>
         ) : !init ? (
-          <div className="slab animate-pulse rounded-xl" style={{ height: 300 }} data-testid="splash-loading" />
+          <div className="slab col-span-2 animate-pulse rounded-xl" style={{ height: 120 }} data-testid="splash-loading" />
         ) : (
-          <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+          <>
             <div className="min-w-0">
               <h2 className="text-[19px] font-semibold leading-tight tracking-tight text-white">
                 Light every crystal
@@ -76,15 +90,23 @@ export function Splash(): React.ReactElement {
                 {streak > 0 && <Pill label="Streak" value={`${streak}d`} tone="amber" />}
               </div>
             </div>
-            <div className="board-frame shrink-0" style={{ width: 150 }}>
-              <BoardThumbnail puzzle={init.puzzle} size={150} />
+            {/*
+             * The preview board is the one element that can grow or shrink
+             * without losing anything: the text beside it carries the
+             * information.  Sizing it by height (`aspect-square` + `h-full`,
+             * capped) means a tall frame gets a generous board instead of a
+             * black band, and a short frame shrinks the board rather than
+             * shoving the Play button out of view.
+             */}
+            <div className="board-frame h-full max-h-[240px] max-w-[46%] shrink-0 aspect-square overflow-hidden">
+              <BoardThumbnail puzzle={init.puzzle} fill />
             </div>
-          </div>
+          </>
         )}
       </div>
 
       {init && (
-        <div className="mt-3 space-y-2">
+        <div className="space-y-2">
           <div className="grid grid-cols-3 gap-1.5">
             <MiniStat label="Elements" value={`≤${par}`} />
             <MiniStat label="Today" value={`${solves}`} />

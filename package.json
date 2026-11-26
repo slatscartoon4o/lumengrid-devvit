@@ -17,6 +17,7 @@
     "preview": "node dist-local/server/local-server.cjs",
     "showcase": "node scripts/capture-showcase.mjs",
     "probe:leaderboard": "node scripts/probe-leaderboard.mjs",
+    "probe:splash": "node scripts/probe-splash-fit.mjs",
     "check:dead": "node scripts/check-dead-exports.mjs",
     "check": "npm run test:types && npm run lint && npm run check:dead",
     "lint": "eslint src",

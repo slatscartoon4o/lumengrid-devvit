@@ -542,24 +542,46 @@ export function OpticsBoard({
   );
 }
 
-/** A tiny read-only render used by the feed splash and the victory card. */
+/**
+ * A tiny read-only render used by the feed splash and the victory card.
+ *
+ * `fill` makes the SVG track its container instead of a fixed pixel square.
+ * The feed card lives in an iframe whose height Reddit chooses (measured at
+ * 512px on desktop, less on a phone), so the preview board has to give up
+ * height when the frame is short or it pushes the Play button out of view.
+ * The fixed `size` remains the default because the victory card, which sits
+ * inside a modal that sizes itself to its content, wants a known square.
+ */
 export function BoardThumbnail({
   puzzle,
   placements,
   size = 132,
+  fill = false,
 }: {
   readonly puzzle: Puzzle;
   readonly placements?: Uint8Array;
   readonly size?: number;
+  readonly fill?: boolean;
 }): React.ReactElement {
   const result = useMemo(
     () => trace(puzzle.cells, placements ?? new Uint8Array(puzzle.cells.length)),
     [puzzle.cells, placements]
   );
   const cell = SIZE / BOARD_W;
-  const scale = size / SIZE;
+  // In `fill` mode the SVG's own box does the scaling, so the inner frame is
+  // drawn at 1:1 against the viewBox.
+  const scale = fill ? 1 : size / SIZE;
+  const sizing = fill
+    ? ({ width: '100%', height: '100%', className: 'block h-full w-full' } as const)
+    : ({ width: size, height: size, className: 'shrink-0' } as const);
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true" className="shrink-0">
+    <svg
+      {...sizing}
+      viewBox={`0 0 ${SIZE} ${SIZE}`}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+      data-fill={fill ? 'true' : undefined}
+    >
       <g transform={`scale(${1})`}>
         <rect x={0} y={0} width={SIZE} height={SIZE} rx={12} fill="#05060a" />
         <g stroke="rgba(255,255,255,0.04)">
