@@ -108,7 +108,7 @@ task for every day after.
 
 ### Demo
 
-[`docs/demo/lumengrid-demo.mp4`](docs/demo/lumengrid-demo.mp4) — 48 second H.264 walkthrough:
+[`docs/demo/lumengrid-demo.mp4`](docs/demo/lumengrid-demo.mp4) — 47 second H.264 walkthrough:
 feed card → play → hint → solve → share → leaderboard → community studio.
 
 ---
