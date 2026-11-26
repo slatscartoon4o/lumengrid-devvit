@@ -137,9 +137,31 @@ with the real schema the CLI uses, so a bad key fails here first.
 
 ### On Reddit
 
+There are two gates before the CLI will do anything, and neither is mentioned by the command that
+fails on it.
+
+**1. A Reddit developer account.** Every command that talks to Reddit — `playtest`, `upload`,
+`publish`, `install`, `logs` — calls `checkDeveloperAccount()` before it looks at your app at all.
+The check compares `acceptedTermsVersion` against `currentTermsVersion`, so an account that does not
+exist fails it the same way an account with stale terms does. What you get is a URL and a menu:
+
+```
+Please finish setting up your developer account before proceeding:
+https://developers.reddit.com/create-account?cli=true
+```
+
+That page is the one that matters — **not** `developers.reddit.com/apps`. An empty app list looks
+identical whether or not the account behind it exists, which is an easy way to conclude you are set
+up when you are not.
+
+**2. A test subreddit you moderate.** `playtest` reads `dev.subreddit` from `devvit.json`; if it is
+unset it tries to create `r/[app-name]_dev` for you, and creating a subreddit needs a captcha
+solved by a person. Set the name yourself once the subreddit exists, and note that the CLI verifies
+the *account is a moderator* server-side — the error when it is not does not say so.
+
 ```bash
-npx devvit login                # authenticate against your Reddit account
-npx devvit playtest <subreddit> # installs the app on your test subreddit
+npx devvit login                     # authenticate against your Reddit account
+npx devvit playtest r/your_test_sub  # installs the app on your test subreddit
 ```
 
 `playtest` builds, uploads and installs the app, then gives you a link to your test subreddit. Make a
