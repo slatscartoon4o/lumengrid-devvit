@@ -173,7 +173,7 @@ The showcase script (`npm run showcase`) drives a real Chromium against the prod
 - the solver rejects the studio's sample level
 - any console error or uncaught exception appears
 
-It writes the six screenshots and re-encodes the 47-second demo video. The staged desktop board is not
+It writes the six screenshots and re-encodes the demo video. The staged desktop board is not
 posed: it is discovered per-day by enumerating socket builds, filtered through the **server's real
 solver**, and then re-verified in the real client — so the screenshot can never show a state the
 engine does not produce.
