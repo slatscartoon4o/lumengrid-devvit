@@ -118,7 +118,7 @@ feed card → play → hint → solve → share → leaderboard → community st
 ```bash
 npm install
 npm run test:types     # tsc --build across the four tsconfig projects
-npm test               # 89 tests, including a full 365-day sweep
+npm test               # 94 tests, including a full 365-day sweep
 npm run check          # the above, plus lint and a dead-export scan
 npm run build          # → dist/client + dist/server/index.cjs (this is what Devvit deploys)
 ```
@@ -128,6 +128,12 @@ have caught: a flair function that was defined, correct and never called, and fo
 helpers with no callers at all. Both are invisible to tests (nothing misbehaves) and to
 `tsc`/ESLint's unused-variable rules (which work per file, so an export with no importer looks
 used). `scripts/check-dead-exports.mjs` does the cross-file count, and exits non-zero.
+
+`devvit.json` had the same shape of blind spot. It is not TypeScript, so `tsc` never sees it, and
+no test read it. An invalid permission block therefore passed `npm test`, `tsc`, `eslint` and
+`npm run build`, and failed only when someone ran a Devvit CLI command — with a message that names
+the failing subschema and not the offending key. `tests/config.test.ts` now parses the real file
+with the real schema the CLI uses, so a bad key fails here first.
 
 ### On Reddit
 
@@ -251,6 +257,7 @@ tests/optics.test.ts       22 tests   colour mixing, reflection geometry, splitt
 tests/solver.test.ts       20 tests   minimality, inventory, pinned elements, brute-force cross-check
 tests/daily-365.test.ts    10 tests   all 365 days: solvable, Par-correct, theme-correct, fast enough
 tests/api.test.ts          37 tests   every route, anti-cheat, streaks, flair, sharing, UGC verification
+tests/config.test.ts        5 tests   devvit.json parses under the CLI's own schema
 ```
 
 The solver suite cross-checks its answers against an independent exhaustive search on random boards,

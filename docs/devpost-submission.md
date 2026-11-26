@@ -213,6 +213,19 @@ where all three drifted out of step with each other. The fix was to hoist the la
 pure function, call it from the submit path, and pin its boundaries with a test that fails if the
 thresholds move. Verified by reverting the call and watching the new test go red.
 
+**A config file that nothing validated.** `devvit.json` is not TypeScript, so it is the one file in
+the project that `tsc`, ESLint and the test suite all pass over. It carried a permission key the
+schema does not accept; every local check stayed green, and the failure surfaced only when the CLI
+was asked to do something — as `permissions.reddit is not exactly one from [subschema 0],[subschema
+1]`, which names the failing subschema and not the offending key. Chasing it down mattered beyond the
+crash: the schema's own prose says `asUser` "is not currently in use, please set scope to `user`
+instead", which reads as though the two are alternatives. They are not. `build-pack`'s
+`dependency-spec-util.js` populates the runtime's `asUserScopes` from `permissions.reddit.asUser` and
+reads `scope` nowhere, and `Comment.submit` calls `assertUserScope(SUBMIT_COMMENT)` before it will run
+as the player. Had we taken the prose at face value and dropped `asUser`, the game's headline feature
+— the comment posted *as you* — would have quietly degraded to an app-authored comment, with no error
+on the way. `tests/config.test.ts` now parses the real file with the CLI's own schema.
+
 ---
 
 ## Accomplishments we are proud of
@@ -225,7 +238,7 @@ thresholds move. Verified by reverting the call and watching the new test go red
 - **A community level cannot be published broken**, because the server re-proves every submission.
 - **The flair ladder lives in exactly one function**, is called from the solve path, and has its
   boundaries pinned by a test — after an audit found it defined but never granted.
-- **89 automated tests**, including an optics suite cross-checked against brute force and a full
+- **94 automated tests**, including an optics suite cross-checked against brute force and a full
   season sweep of the daily generator.
 
 ---
