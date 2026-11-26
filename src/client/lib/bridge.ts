@@ -12,11 +12,65 @@
 
 import { showToast as devvitShowToast, requestExpandedMode } from '@devvit/web/client';
 
+/**
+ * The subset of `globalThis.devvit` this bundle needs.
+ *
+ * Devvit injects this object into every web view.  It carries the signed
+ * request token and the per-entrypoint URLs, both of which are required to
+ * reach our own server: the platform rejects `/api/*` requests that do not
+ * carry `?token=<devvit.token>` (they come back 401 "missing authorization
+ * header"), and the entrypoint URL is what tells us which origin to ask.
+ *
+ * Absent in a local preview, where same-origin relative fetches just work.
+ *
+ * @see node_modules/@devvit/shared-types/client/devvit-global.d.ts
+ */
+type DevvitRuntime = {
+  token?: string;
+  entrypoints?: Record<string, string>;
+};
+
 declare global {
   interface Window {
     // Provided by Devvit at runtime; absent in a local preview.
-    __DEVIT__?: unknown;
+    devvit?: DevvitRuntime;
   }
+}
+
+/** Devvit's runtime object, if we are inside a real Reddit web view. */
+function devvitRuntime(): DevvitRuntime | undefined {
+  return typeof window === 'undefined' ? undefined : window.devvit;
+}
+
+/**
+ * Origin that serves our `/api/*` routes.
+ *
+ * Inside Reddit the web view can be hosted on a different origin than the app
+ * server, so a bare relative fetch hits the wrong host and comes back 401
+ * "missing authorization header" — the failure the first playtest deploy
+ * produced.  The entrypoint URLs Devvit hands us are on the app server, so any
+ * one of them gives us the right origin.
+ *
+ * `devvit.entrypoints` can legitimately be `{}`: `@devvit/web-view-scripts`
+ * builds it as `clientData?.appConfig?.entrypoints ?? {}`.  Falling straight
+ * back to `window.location.origin` there would recreate the bug in exactly the
+ * case we are guarding against, so when we know we are inside Reddit but were
+ * given no entrypoints, we return `undefined` and let the caller decide.
+ */
+function apiOrigin(): string | undefined {
+  const entrypoints = devvitRuntime()?.entrypoints;
+  if (entrypoints) {
+    for (const url of Object.values(entrypoints)) {
+      try {
+        return new URL(url, window.location.href).origin;
+      } catch {
+        // Try the next one.
+      }
+    }
+  }
+  // A local preview has no `devvit` global at all, and there same-origin
+  // relative fetches are correct.
+  return devvitRuntime() ? undefined : window.location.origin;
 }
 
 /** True when we are inside a real Reddit post rather than a local preview. */
@@ -108,9 +162,22 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** Build the absolute URL for an `/api/*` path, carrying Devvit's request token. */
+function apiUrl(path: string): string {
+  // `path` may already carry its own query string; let URL parse it, then add
+  // Devvit's token alongside whatever the caller asked for.
+  const origin = apiOrigin();
+  const url = origin ? new URL(`/api${path}`, origin) : new URL(`/api${path}`, window.location.href);
+  // Only needed when Devvit gave us one; a local preview has no token and the
+  // dev server does not ask for it.
+  const token = devvitRuntime()?.token;
+  if (token) url.searchParams.set('token', token);
+  return url.toString();
+}
+
 /** Fetch helper that always returns parsed JSON or throws a readable error. */
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     headers: { 'content-type': 'application/json' },
     ...init,
   });
